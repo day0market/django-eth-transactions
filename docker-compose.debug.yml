@@ -1,0 +1,70 @@
+version: '3'
+
+services:
+  db:
+    image: postgres:9.6.5
+    volumes:
+      - postgres_data_eth:/var/lib/postgresql/data_eth/
+  redis:
+    image: "redis:alpine"
+  web:
+    build: .
+    restart: always
+    environment:
+      - DJANGO_DEBUG=Yes
+    command: bash -c "/code/start.sh"
+    volumes:
+      - .:/code
+      - /static:/static
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+  celery:
+    build: .
+    environment:
+      - DJANGO_DEBUG=Yes
+    command: celery -A transactionsETH worker -l info -Ofair
+    volumes:
+      - .:/code
+    restart: on-failure
+    depends_on:
+      - db
+      - redis
+      - web
+  celery-beat:
+    build: .
+    environment:
+      - DJANGO_DEBUG=Yes
+    command: celery -A transactionsETH beat -l info
+    volumes:
+      - .:/code
+    depends_on:
+      - db
+      - redis
+      - web
+  flower:
+    image: mher/flower
+    command: ["flower", "--broker=redis://redis:6379", "--port=8888"]
+    ports:
+      - "8888:8888"
+    depends_on:
+      - db
+      - redis
+      - web
+      - celery
+      - celery-beat
+  nginx:
+    image: nginx:1.14
+    container_name: ngx_eth_transactions
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx:/etc/nginx/conf.d
+      - /static:/static
+    depends_on:
+      - web
+
+volumes:
+  postgres_data_eth:

@@ -1,0 +1,6 @@
+.idea
+celerybeat-schedule
+celerybeat.pid
+.cache
+__pycache__/
+*.log
